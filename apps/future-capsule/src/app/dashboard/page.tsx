@@ -11,6 +11,7 @@ import { CardSkeleton } from '../../components/shared/Loading';
 import { ErrorAlert } from '../../components/shared/ErrorAlert';
 import { EmptyState } from '../../components/shared/EmptyState';
 import { CapsuleCard } from '../../components/capsule/CapsuleCard';
+import { MapView } from '../../components/map/MapView';
 import { useCapsules } from '../../hooks/useCapsules';
 import type { Capsule, CapsuleListItem } from '../../types/capsule';
 import { capsuleClient } from '../../lib/api/capsule-client';
@@ -89,6 +90,37 @@ export default function DashboardPage() {
             </Button>
           </div>
         </motion.div>
+
+        {/* Map Section */}
+        {capsules.some(capsule => (capsule as any).latitude && (capsule as any).longitude) && (
+          <motion.div
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="mb-8"
+          >
+            <Card className="p-6">
+              <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">
+                📍 Memory Map
+              </h2>
+              <p className="text-gray-600 dark:text-gray-400 mb-4">
+                See where your time capsule memories were created
+              </p>
+              <MapView
+                locations={capsules
+                  .filter(capsule => (capsule as any).latitude && (capsule as any).longitude)
+                  .map(capsule => ({
+                    id: capsule.id,
+                    latitude: (capsule as any).latitude,
+                    longitude: (capsule as any).longitude,
+                    title: capsule.title,
+                    unlockDate: capsule.unlockDate,
+                    mood: capsule.mood,
+                  }))}
+                className="rounded-lg overflow-hidden"
+              />
+            </Card>
+          </motion.div>
+        )}
 
         {/* Filter Tabs */}
         {capsules.length > 0 && (

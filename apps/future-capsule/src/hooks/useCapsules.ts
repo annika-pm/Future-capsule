@@ -11,6 +11,8 @@ export interface Capsule {
   mood: string;
   unlock_date: string;
   photo_url: string | null;
+  latitude: number | null;
+  longitude: number | null;
   created_at: string;
   updated_at: string;
   isLocked: boolean;

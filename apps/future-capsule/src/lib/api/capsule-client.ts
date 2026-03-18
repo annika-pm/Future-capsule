@@ -103,7 +103,7 @@ export const capsuleClient = {
   /**
    * Create a new capsule
    */
-  createCapsule: async (input: CreateCapsuleInput): Promise<Capsule> => {
+  createCapsule: async (input: CreateCapsuleInput, coordinates?: { latitude: number; longitude: number } | null): Promise<Capsule> => {
     if (!input.title?.trim()) {
       throw new Error('Title is required');
     }
@@ -127,6 +127,8 @@ export const capsuleClient = {
       mood: input.mood,
       unlock_date: new Date(input.unlockDate).toISOString(),
       photo_url: input.photoURL || null,
+      latitude: coordinates?.latitude || null,
+      longitude: coordinates?.longitude || null,
     };
 
     return apiCall<Capsule>('/capsules', {

@@ -3,6 +3,7 @@
 import { useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
+import { exifr } from 'exifr';
 import { Button } from '../shared/Button';
 import { Input, Textarea } from '../shared/Input';
 import { Card } from '../shared/Card';
@@ -30,6 +31,7 @@ export function CapsuleForm({ onSuccess }: CapsuleFormProps) {
   const [unlockTime, setUnlockTime] = useState('00:00');
   const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
+  const [photoCoordinates, setPhotoCoordinates] = useState<{ latitude: number; longitude: number } | null>(null);
 
   // UI state
   const [isLoading, setIsLoading] = useState(false);
@@ -108,6 +110,23 @@ export function CapsuleForm({ onSuccess }: CapsuleFormProps) {
       return rest;
     });
 
+    // Extract EXIF GPS data
+    try {
+      const exifData = await exifr.parse(file, { gps: true });
+      if (exifData?.latitude && exifData?.longitude) {
+        setPhotoCoordinates({
+          latitude: exifData.latitude,
+          longitude: exifData.longitude,
+        });
+      } else {
+        setPhotoCoordinates(null);
+      }
+    } catch (error) {
+      // EXIF extraction failed, continue without coordinates
+      console.warn('Failed to extract EXIF data:', error);
+      setPhotoCoordinates(null);
+    }
+
     // Create preview
     const reader = new FileReader();
     reader.onload = (e) => {
@@ -144,7 +163,7 @@ export function CapsuleForm({ onSuccess }: CapsuleFormProps) {
         photoURL,
       };
 
-      await capsuleClient.createCapsule(input);
+      await capsuleClient.createCapsule(input, photoCoordinates);
 
       setSuccessMessage('Capsule created successfully! 🎉');
 
@@ -156,6 +175,7 @@ export function CapsuleForm({ onSuccess }: CapsuleFormProps) {
       setUnlockTime('00:00');
       setPhotoFile(null);
       setPhotoPreview(null);
+      setPhotoCoordinates(null);
 
       // Redirect after 1 second
       setTimeout(() => {

@@ -61,6 +61,8 @@ export async function POST(request: NextRequest) {
       mood: body.mood,
       unlockDate: body.unlock_date || body.unlockDate,
       photoURL: body.photo_url || body.photoURL,
+      latitude: body.latitude || null,
+      longitude: body.longitude || null,
     };
 
     // Validate capsule data
@@ -90,6 +92,8 @@ export async function POST(request: NextRequest) {
       mood: normalizedData.mood,
       unlock_date: unlockDate,
       photo_url: normalizedData.photoURL || null,
+      latitude: normalizedData.latitude,
+      longitude: normalizedData.longitude,
       created_at: now,
       updated_at: now,
     };
@@ -231,6 +235,8 @@ export async function GET(request: NextRequest) {
         mood: capsule.mood,
         unlock_date: capsule.unlock_date,
         photo_url: capsule.photo_url,
+        latitude: capsule.latitude,
+        longitude: capsule.longitude,
         created_at: capsule.created_at,
         updated_at: capsule.updated_at,
         isLocked,
