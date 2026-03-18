@@ -1,10 +1,8 @@
 {
-  "installation": {
-    "version": "22.5.4"
-  },
+  "installation": { "version": "22.5.4" },
   "$schema": "./node_modules/nx/schemas/nx-schema.json",
   "defaultBase": "master",
-  "nxCloudId": "69b0f946bd6f169e03b5279e",
+  "nxCloudId": "69ba3307e071c9039e0d83ad",
   "plugins": [
     {
       "plugin": "@nx/next/plugin",
@@ -17,19 +15,9 @@
         "watchDepsTargetName": "watch-deps"
       }
     },
-    {
-      "plugin": "@nx/playwright/plugin",
-      "options": {
-        "targetName": "e2e"
-      }
-    }
+    { "plugin": "@nx/playwright/plugin", "options": { "targetName": "e2e" } }
   ],
   "generators": {
-    "@nx/next": {
-      "application": {
-        "style": "tailwind",
-        "linter": "none"
-      }
-    }
+    "@nx/next": { "application": { "style": "tailwind", "linter": "none" } }
   }
 }
