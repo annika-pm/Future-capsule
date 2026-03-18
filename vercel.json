@@ -1,0 +1,59 @@
+{
+  "$schema": "https://vercel.com/schemas/vercel.json",
+  "version": 2,
+  "buildCommand": "npx nx build future-capsule",
+  "outputDirectory": ".next",
+  "framework": "nextjs",
+  "monorepoRoot": ".",
+  "regions": ["iad1"],
+  "env": {
+    "NEXT_PUBLIC_ENVIRONMENT": "@next_public_environment",
+    "NEXT_PUBLIC_SUPABASE_URL": "@next_public_supabase_url",
+    "NEXT_PUBLIC_SUPABASE_ANON_KEY": "@next_public_supabase_anon_key",
+    "SUPABASE_SERVICE_ROLE_KEY": "@supabase_service_role_key"
+  },
+  "functions": {
+    "apps/future-capsule/src/app/api/**/*.ts": {
+      "runtime": "nodejs20.x",
+      "memory": 1024,
+      "maxDuration": 60
+    }
+  },
+  "builds": [
+    {
+      "src": "apps/future-capsule/next.config.js",
+      "use": "@vercel/next"
+    }
+  ],
+  "routes": [
+    {
+      "src": "/api/(.*)",
+      "dest": "apps/future-capsule/src/app/api/$1",
+      "headers": {
+        "Cache-Control": "no-cache, no-store, must-revalidate"
+      }
+    },
+    {
+      "src": "/static/(.*)",
+      "dest": "apps/future-capsule/public/$1",
+      "headers": {
+        "Cache-Control": "public, max-age=31536000, immutable"
+      }
+    },
+    {
+      "src": "/favicon.ico",
+      "dest": "apps/future-capsule/public/favicon.ico"
+    }
+  ],
+  "headers": [
+    {
+      "source": "/api/(.*)",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "no-cache, no-store, must-revalidate"
+        }
+      ]
+    }
+  ]
+}

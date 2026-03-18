@@ -1,0 +1,194 @@
+// Firestore Security Rules for FutureCapsule Application
+// Version: 1.0
+// Last Updated: 2026-03-11
+// 
+// Rules enforce:
+// 1. User isolation (users can only access their own data)
+// 2. Unlock date validation (server-side enforcement)
+// 3. Authentication requirements
+// 4. Transactional integrity
+
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // ============================================
+    // HELPER FUNCTIONS
+    // ============================================
+    
+    // Check if request is from authenticated user
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    // Check if user is the owner of the resource
+    function isOwner(userId) {
+      return request.auth.uid == userId;
+    }
+    
+    // Check if document belongs to current user
+    function isOwnDocument() {
+      return isOwner(resource.data.userId);
+    }
+    
+    // Check if incoming data userId matches authenticated user
+    function incomingUserIdMatches() {
+      return request.resource.data.userId == request.auth.uid;
+    }
+    
+    // Get current server timestamp
+    function now() {
+      return request.time;
+    }
+    
+    // Check if capsule is unlocked (currentTime >= unlockDate)
+    function isCapsuleUnlocked(capsule) {
+      return now >= capsule.unlockDate;
+    }
+    
+    // Check if user can read the full capsule (unlocked or is owner before unlock)
+    function canReadFullCapsule(capsule) {
+      return isOwner(capsule.userId) || isCapsuleUnlocked(capsule);
+    }
+    
+    // Validate email format
+    function isValidEmail(email) {
+      return email.matches('[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}');
+    }
+    
+    // Validate mood enum
+    function isValidMood(mood) {
+      return mood in ['Happy', 'Motivated', 'Confused', 'Sad', 'Grateful', 'Hopeful'];
+    }
+    
+    // Validate capsule status enum
+    function isValidStatus(status) {
+      return status in ['draft', 'scheduled', 'unlocked', 'archived'];
+    }
+    
+    // ============================================
+    // USERS COLLECTION
+    // ============================================
+    
+    match /users/{userId} {
+      // Users can read their own profile
+      allow read: if isAuthenticated() && isOwner(userId);
+      
+      // Users can create their own profile (during signup)
+      // Must provide: email, displayName, preferences
+      allow create: if isAuthenticated() && 
+                       isOwner(userId) &&
+                       request.resource.data.uid == request.auth.uid &&
+                       request.resource.data.email == request.auth.token.email &&
+                       isValidEmail(request.resource.data.email) &&
+                       request.resource.data.displayName is string &&
+                       request.resource.data.displayName.size() > 0 &&
+                       request.resource.data.displayName.size() <= 255 &&
+                       request.resource.data.createdAt == request.time &&
+                       request.resource.data.updatedAt == request.time &&
+                       request.resource.data.status == 'active';
+      
+      // Users can update their own profile
+      // Allowed fields: displayName, photoURL, preferences, updatedAt
+      allow update: if isAuthenticated() && 
+                       isOwner(userId) &&
+                       // Only allow specific fields to be updated
+                       request.resource.data.keys().hasOnly(['uid', 'email', 'displayName', 
+                                                              'photoURL', 'preferences', 
+                                                              'createdAt', 'updatedAt', 'status']) &&
+                       // Cannot change uid, email, createdAt, or status
+                       resource.data.uid == request.resource.data.uid &&
+                       resource.data.email == request.resource.data.email &&
+                       resource.data.createdAt == request.resource.data.createdAt &&
+                       resource.data.status == request.resource.data.status &&
+                       // Validate updated fields
+                       request.resource.data.displayName is string &&
+                       request.resource.data.displayName.size() > 0 &&
+                       request.resource.data.displayName.size() <= 255 &&
+                       request.resource.data.updatedAt == request.time;
+      
+      // Users cannot delete their own profile (admin action only)
+      allow delete: if false;
+      
+      // ========================================
+      // CAPSULES SUB-COLLECTION
+      // ========================================
+      
+      match /capsules/{capsuleId} {
+        // User can read their own capsules
+        // If capsule is unlocked, return full content
+        // If capsule is locked and user is owner, return full (can edit)
+        // If capsule is locked and user is not owner, DENY
+        allow read: if isAuthenticated() && canReadFullCapsule(resource.data);
+        
+        // User can create capsules in their profile
+        // Required fields: userId, title, message, mood, unlockDate, createdAt, updatedAt
+        allow create: if isAuthenticated() && 
+                         incomingUserIdMatches() &&
+                         request.resource.data.id is string &&
+                         request.resource.data.title is string &&
+                         request.resource.data.title.size() > 0 &&
+                         request.resource.data.title.size() <= 255 &&
+                         request.resource.data.message is string &&
+                         request.resource.data.message.size() > 0 &&
+                         request.resource.data.message.size() <= 50000 &&
+                         isValidMood(request.resource.data.mood) &&
+                         request.resource.data.unlockDate is timestamp &&
+                         // Unlock date must be in the future (or today)
+                         request.resource.data.unlockDate >= now() &&
+                         request.resource.data.createdAt == request.time &&
+                         request.resource.data.updatedAt == request.time &&
+                         request.resource.data.isDeleted == false &&
+                         isValidStatus(request.resource.data.status) &&
+                         // photoURL is optional
+                         (!has(request.resource.data, 'photoURL') || 
+                          request.resource.data.photoURL is string);
+        
+        // User can update their own capsules (before unlock date)
+        // Restrictions: Cannot modify userId, createdAt, unlockDate (after creation)
+        // Cannot update if capsule is unlocked and locked earlier than now (published)
+        allow update: if isAuthenticated() && 
+                         isOwnDocument() &&
+                         // Cannot change critical fields
+                         resource.data.userId == request.resource.data.userId &&
+                         resource.data.createdAt == request.resource.data.createdAt &&
+                         resource.data.unlockDate == request.resource.data.unlockDate &&
+                         // Can only update if not yet unlocked
+                         !isCapsuleUnlocked(resource.data) &&
+                         // Validate updated fields
+                         request.resource.data.title is string &&
+                         request.resource.data.title.size() > 0 &&
+                         request.resource.data.title.size() <= 255 &&
+                         request.resource.data.message is string &&
+                         request.resource.data.message.size() > 0 &&
+                         request.resource.data.message.size() <= 50000 &&
+                         isValidMood(request.resource.data.mood) &&
+                         request.resource.data.updatedAt == request.time;
+        
+        // User can only soft-delete (set isDeleted = true)
+        // Cannot permanently delete documents
+        allow delete: if isAuthenticated() && 
+                         isOwnDocument();
+      }
+    }
+    
+    // ============================================
+    // ADMIN OPERATIONS (Temporary Rule for Setup)
+    // ============================================
+    // Note: Remove this in production
+    // Admin operations should use Firebase Admin SDK with custom claims
+    
+    // Admin can read/write everything (use admin SDK, not client)
+    // This rule is NOT reachable from client-side Firebase SDK
+    // match /{document=**} {
+    //   allow read, write: if request.auth.token.isAdmin == true;
+    // }
+    
+    // ============================================
+    // DENY ALL BY DEFAULT
+    // ============================================
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

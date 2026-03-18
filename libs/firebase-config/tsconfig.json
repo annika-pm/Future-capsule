@@ -1,0 +1,9 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "outDir": "../../dist/out-tsc/libs/firebase-config"
+  },
+  "files": ["src/index.ts"],
+  "include": ["tsconfig.lib.json"],
+  "references": []
+}
